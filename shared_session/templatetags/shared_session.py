@@ -1,13 +1,19 @@
 import copy
 import json
-from urllib.parse import urljoin
 
 import nacl.secret
 import nacl.utils
 from django import template
 from django.conf import settings
-from django.contrib.sessions.backends.base import UpdateError
-from django.urls import reverse
+try:
+    from django.contrib.sessions.backends.base import UpdateError
+except ImportError:
+    UpdateError = Exception
+from django.utils.six.moves.urllib.parse import urljoin
+try:
+    from django.urls import reverse
+except ImportError:
+    from django.core.urlresolvers import reverse
 from django.utils import timezone
 from django.utils.http import urlsafe_base64_encode
 
@@ -24,10 +30,10 @@ class LoaderNode(template.Node):
 
     def __init__(self):
         self.encryption_key = settings.SECRET_KEY.encode('ascii')[:nacl.secret.SecretBox.KEY_SIZE]
-        super().__init__()
+        super(LoaderNode, self).__init__()
 
     def get_domains(self, request):
-        host = request.META['HTTP_HOST']
+        host = request.META.get('HTTP_HOST', '').split(':')[0]
 
         # Build domain list, with support for subdomains
         domains = copy.copy(settings.SHARED_SESSION_SITES)
@@ -62,14 +68,18 @@ class LoaderNode(template.Node):
     def render(self, context):
         request = context['request']
 
-        if request.session.is_empty():
+        if request.session.keys():
             return ''
+
+        port = ":{}".format(request.META.get('SERVER_PORT', None))
+        if (port == '443' and request.is_secure()) or port == '80':
+            port = ''
 
         try:
             self.ensure_session_key(request)
 
             return self.template.render(template.Context({
-                'domains': [self.build_url(domain='{}://{}'.format(request.scheme, domain), message=self.get_message(request, domain)) for domain in self.get_domains(request)]
+                'domains': [self.build_url(domain='//{}{}'.format(domain, port), message=self.get_message(request, domain)) for domain in self.get_domains(request)]
             }))
         except UpdateError:
             return ''

@@ -7,7 +7,10 @@ from django.conf import settings
 from django.http.response import HttpResponse
 from django.utils import timezone
 from django.utils.http import cookie_date, urlsafe_base64_decode
-from django.views import View
+try:
+    from django.views import View
+except ImportError:
+    from django.views.generic import View
 from nacl.exceptions import CryptoError
 from . import signals
 
@@ -15,7 +18,7 @@ from . import signals
 class SharedSessionView(View):
     def __init__(self, **kwargs):
         self.encryption_key = settings.SECRET_KEY.encode('ascii')[:nacl.secret.SecretBox.KEY_SIZE]
-        super().__init__(**kwargs)
+        super(SharedSessionView, self).__init__(**kwargs)
 
     def decrypt_payload(self, message):
         box = nacl.secret.SecretBox(self.encryption_key)
