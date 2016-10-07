@@ -5,6 +5,7 @@ import nacl.secret
 import nacl.utils
 from django import template
 from django.conf import settings
+
 try:
     from django.contrib.sessions.backends.base import UpdateError
 except ImportError:
@@ -16,6 +17,9 @@ except ImportError:
     from django.core.urlresolvers import reverse
 from django.utils import timezone
 from django.utils.http import urlsafe_base64_encode
+
+from .utils import is_empty
+
 
 register = template.Library()
 
@@ -68,12 +72,12 @@ class LoaderNode(template.Node):
     def render(self, context):
         request = context['request']
 
-        if request.session.keys():
+        if is_empty(request.session):
             return ''
 
-        port = ":{}".format(request.META.get('SERVER_PORT', None))
-        if (port == '443' and request.is_secure()) or port == '80':
-            port = ''
+        port = ''
+        if settings.DEBUG:
+            port = ":{}".format(request.META.get('SERVER_PORT', None))
 
         try:
             self.ensure_session_key(request)

@@ -1,18 +1,20 @@
-import time
 import json
+import time
+
 import nacl.secret
 from dateutil.parser import parse
-
 from django.conf import settings
 from django.http.response import HttpResponse
 from django.utils import timezone
 from django.utils.http import cookie_date, urlsafe_base64_decode
+
 try:
     from django.views import View
 except ImportError:
     from django.views.generic import View
 from nacl.exceptions import CryptoError
 from . import signals
+from shared_session.templatetags.utils import is_empty
 
 
 class SharedSessionView(View):
@@ -31,7 +33,7 @@ class SharedSessionView(View):
         try:
             message = self.decrypt_payload(urlsafe_base64_decode(kwargs.get('message')))
 
-            is_session_empty = request.session.is_empty()
+            is_session_empty = is_empty(request.session)
 
             # replace session cookie only when session is empty or when always replace is set
             if is_session_empty or getattr(settings, 'SHARED_SESSION_ALWAYS_REPLACE', False):
